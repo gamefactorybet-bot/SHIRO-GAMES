@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es" data-cara="jugar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Jugar</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <script>
+    (function () {
+      function lista(v) {
+        return String(v || '').split(',').map(function (s) {
+          return s.trim().toLowerCase()
+            .replace(/^https?:\/\//, '')
+            .replace(/^www\./, '')
+            .replace(/[:/].*$/, '');
+        }).filter(Boolean);
+      }
+      var h = location.hostname.toLowerCase().replace(/^www\./, '');
+      var fija = '__CARA__';
+      var estudio = lista('__DOMINIO_ESTUDIO__');
+      var jugar = lista('__DOMINIO_JUGAR__');
+      var cara = (fija === 'estudio' || fija === 'jugar')
+        ? fija
+        : (estudio.indexOf(h) !== -1 ? 'estudio' : jugar.indexOf(h) !== -1 ? 'jugar' : 'ambos');
+      var dest = document.documentElement.getAttribute('data-cara');
+      if (cara === 'ambos' || cara === dest) return;
+      location.replace(cara === 'estudio' ? '/estudio' : '/');
+    })();
+  </script>
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var slug = params.get('slug') || '';
+      var token = params.get('token') || '';
+      var m = location.pathname.match(/\/jugar\/([^/?#]+)\/?$/);
+      var pieza = '';
+      if (m) {
+        try { pieza = decodeURIComponent(m[1]); } catch (e) { pieza = m[1]; }
+      }
+      if (!slug) slug = pieza;
+      var nombre = '';
+      try {
+        var previo = JSON.parse(sessionStorage.getItem('jugar-sesion') || 'null');
+        if (previo && previo.slug === slug && previo.nombre) nombre = String(previo.nombre);
+      } catch (e) { /* sesión vieja o vacía */ }
+      function titulo(texto) {
+        var t = String(texto || '').replace(/-/g, ' ').trim();
+        return t ? t.charAt(0).toUpperCase() + t.slice(1) : 'Jugar';
+      }
+      function limpiar() {
+        if (!slug || !token) return;
+        try {
+          sessionStorage.setItem('jugar-sesion', JSON.stringify({ slug: slug, token: token, nombre: nombre }));
+          history.replaceState(null, '', '/jugar/' + encodeURIComponent(nombre || slug));
+        } catch (e) { /* sin storage: el token se queda en la query */ }
+      }
+      limpiar();
+      document.addEventListener('DOMContentLoaded', limpiar);
+      window.addEventListener('load', limpiar);
+      setTimeout(limpiar, 0);
+      if (nombre) document.title = nombre;
+      else if (slug || pieza) document.title = titulo(slug || pieza);
+    })();
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/Jugar.tsx"></script>
+</body>
+</html>

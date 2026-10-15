@@ -1,0 +1,1098 @@
+// Tipos de dominio compartidos entre módulos del ensamblador. Se van
+// completando a medida que se migra cada pantalla a TypeScript — no hace
+// falta tipar de una todas las columnas que existen en la base (la tabla
+// `juegos` tiene decenas de campos de posición: marco_x, cartel_y,
+// grilla_tamano, *_blur, *_oscurecer, etc.). Por eso los tipos llevan un
+// index signature: lo que todavía no está tipado no rompe.
+
+export type EstadoJuego = 'borrador' | 'en_prueba' | 'listo';
+
+export type NombreMotor = 'clasico-3x3' | 'clasico-5x3' | 'ruleta' | 'ruleta-botones' | 'blackjack-clasico';
+
+/** Una fila de la tabla `juegos`. */
+export interface Juego {
+  id: string;
+  slug: string;
+  nombre: string;
+  descripcion?: string | null;
+  estado: EstadoJuego;
+  motor: string;
+  min_bet: number;
+  max_bet: number;
+  paso_apuesta?: number;
+
+  publicado?: boolean;
+  version?: number;
+
+  // Assets principales (el resto de URLs y posiciones entran por el
+  // index signature hasta que se tipen al migrar el editor).
+  fondo_url?: string | null;
+  fondo_pantalla_url?: string | null;
+  marco_url?: string | null;
+  cartel_url?: string | null;
+  portada_url?: string | null;
+  premio_url?: string | null;
+  girar_imagen_url?: string | null;
+  /** Color del borde iluminado de los botones con imagen. Vacío = acento. */
+  borde_luz?: string | null;
+  /** Qué botones se ven, la imagen de Auto y dónde está. Vacío = se ve todo, Auto a la izquierda de Girar. */
+  planilla?: {
+    visibles?: Partial<Record<string, boolean>>;
+    auto_imagen_url?: string | null;
+    auto_x?: number | null;
+    auto_y?: number | null;
+    auto_tam?: number | null;
+    turbo_pos?: Partial<Record<'x1' | 'x2' | 'x3', { x: number; y: number }>>;
+  } | null;
+
+  grilla_icono_tamano?: number;
+  capas_orden?: string[];
+
+  // Mines: en vez de calibrar una tabla de pagos, el RTP es un solo
+  // número (el margen de la casa, 0.03 = 3%). Cada cara de la casilla
+  // (tapada / segura / mina) es opcional y puede ser imagen O una
+  // animación Lottie; sin nada se ve un estilo por defecto. Un asset
+  // por cara: al setear uno se limpia el otro.
+  mines_margen_pct?: number;
+  mines_casilla_oculta_url?: string | null;
+  mines_casilla_segura_url?: string | null;
+  mines_casilla_mina_url?: string | null;
+  mines_casilla_oculta_lottie_url?: string | null;
+  mines_casilla_segura_lottie_url?: string | null;
+  mines_casilla_mina_lottie_url?: string | null;
+  /** 'minas' = solo las minas al perder; 'todo' = tablero entero. */
+  mines_revelado_al_perder?: 'minas' | 'todo';
+  /** Posición/aspecto de los controles del tablero de Mines (jsonb). */
+  mines_controles?: Partial<PosControlesMines>;
+  /** Piel visual de Mines (`clasico`, `vegas`, `neon`…). No toca el RTP. */
+  mines_tema?: string | null;
+
+  /** Ruleta de botones: toda su config (números, fichas, sorpresa). */
+  ruleta_botones_cfg?: Partial<RuletaBotonesCfg>;
+
+  /** Crash: toda su config (rtp, velocidad, formato, tema, imágenes…). */
+  crash_cfg?: Partial<CrashCfg>;
+
+  /** Plinko: toda su config (rtp, filas/riesgo, tema, bola, colores…). */
+  plinko_cfg?: Partial<PlinkoCfg>;
+
+  /** Raspadita: toda su config (grilla, símbolos y escalones, tema, imágenes…). */
+  raspa_cfg?: Partial<RaspaCfg>;
+
+  /** Limbo / Dice: su config (rtp, tope/rango, tema…). */
+  limbo_cfg?: Partial<LimboCfg>;
+  dice_cfg?: Partial<DiceCfg>;
+
+  /** Keno: su config (tablero, bolas, marcar, riesgo, tema, pagos…). */
+  keno_cfg?: Partial<KenoCfg>;
+
+  /** 7 Up 7 Down: su config (rtp, caras, pagos por zona, tema, imágenes…). */
+  sieteud_cfg?: Partial<SieteUdCfg>;
+
+  /** Torre: su config (rtp, dificultad, pisos, tema, imágenes, escalera…). */
+  torre_cfg?: Partial<TorreCfg>;
+
+  blackjack_cfg?: Partial<BlackjackCfg>;
+
+  /** Fichas de apuesta rápida (cualquier motor). Vacío = controles normales. */
+  fichas_cfg?: Partial<FichasCfg>;
+
+  created_at?: string;
+  updated_at?: string;
+
+  [columna: string]: unknown;
+}
+
+export type EstadoMines = 'en_curso' | 'retirada' | 'perdida';
+
+/** Respuesta de `POST /api/mines` (accion: 'iniciar'). */
+export interface RondaMines {
+  roundId: string;
+  minas: number;
+  reveladas: number[];
+  estado: EstadoMines;
+  multiplicador: number;
+  saldo?: number;
+  yaExistia: boolean;
+}
+
+/** Respuesta de `POST /api/mines` (accion: 'revelar'). */
+export interface RevelarMines {
+  esMina: boolean;
+  casilla: number;
+  estado: EstadoMines;
+  multiplicador?: number;
+  puedeRetirar?: boolean;
+  tableroCompleto?: boolean;
+  /** Solo cuando se pisó una mina: dónde estaban todas. */
+  posicionesMina?: number[];
+}
+
+/** Un recuadro posicionable de Mines (saldo / multiplicador). */
+export interface RecuadroMines {
+  x: number; y: number; ancho: number; alto: number;
+  fondo_url?: string | null;
+}
+/** El botón de acción de Mines (Empezar / Retirar / Jugar de nuevo). */
+export interface BotonMines {
+  x: number; y: number; ancho: number; alto: number;
+  imagen_url?: string | null;
+}
+/** El selector de cuántas minas poner (slider 1–24). */
+export interface SelectorMinasCfg {
+  x: number; y: number;
+  ancho: number;
+  /** Alto del carril en px (la perilla se agranda con él). */
+  grosor: number;
+  carril_url?: string | null;
+  thumb_url?: string | null;
+}
+
+/** Posición y aspecto de todos los controles del tablero de Mines. */
+export interface PosControlesMines {
+  saldo: RecuadroMines;
+  mult: RecuadroMines;
+  apuesta: { x: number; y: number };
+  minas: SelectorMinasCfg;
+  boton: BotonMines;
+}
+
+/** Respuesta de `POST /api/mines` (accion: 'retirar'). */
+export interface RetirarMines {
+  ganancia: number;
+  multiplicador: number;
+  saldo: number | null;
+  posicionesMina?: number[];
+  repetido?: boolean;
+}
+
+/** Una fila de la tabla `simbolos`. */
+export interface Simbolo {
+  id: string;
+  juego_id: string;
+  nombre: string;
+  icono_url?: string | null;
+
+  peso: number;
+  pago_dos: number;
+  pago_tres: number;
+  pago_cuatro?: number | null;
+  pago_cinco?: number | null;
+
+  /** Ruleta de multiplicadores: color de la tajada. */
+  color?: string | null;
+
+  orden: number;
+
+  // Reacciones Lottie opcionales (ver sql/30_migrar_a_lottie.sql).
+  lottie_chico_url?: string | null;
+  lottie_grande_url?: string | null;
+
+  created_at?: string;
+  [columna: string]: unknown;
+}
+
+/** Peso y pagos de un símbolo, tal como los guarda un perfil de RTP
+ * (una foto de la tabla de pagos). */
+export interface PagosSimbolo {
+  peso: number;
+  pago_dos: number;
+  pago_tres: number;
+  pago_cuatro?: number | null;
+  pago_cinco?: number | null;
+}
+
+/** Una fila de la tabla `perfiles_rtp` (un "modo de pago" guardado del
+ * juego: Tacaño, Nivelado, Generoso…). El juego tiene uno activo, que
+ * es el que aplica el servidor al resolver cada giro. */
+export interface PerfilRtp {
+  id: string;
+  juego_id: string;
+  nombre: string;
+  rtp_objetivo?: number | null;
+  /** `{ [simbolo_id]: PagosSimbolo }` */
+  pagos: Record<string, PagosSimbolo>;
+  activo: boolean;
+  orden: number;
+  created_at?: string;
+}
+
+/** Config de rotación automática de perfiles de RTP (una fila por juego). */
+export interface RotacionRtp {
+  juego_id: string;
+  activa: boolean;
+  /** Franja "noche" en hora local del servidor (0-23). El resto es día. */
+  noche_desde: number;
+  noche_hasta: number;
+  /** Peso de cada perfil por franja: `{ [perfil_id]: peso }`. */
+  pesos_dia: Record<string, number>;
+  pesos_noche: Record<string, number>;
+  segmento_min: number;
+  segmento_max: number;
+}
+
+/** Tramo de rotación vigente (una fila por juego). */
+export interface RotacionEstado {
+  juego_id: string;
+  perfil_id: string | null;
+  hasta_ts: string;
+}
+
+/** Una fila del historial de rotación. */
+export interface RotacionHistorialFila {
+  id: number;
+  juego_id: string;
+  perfil_id: string | null;
+  perfil_nombre: string | null;
+  desde_ts: string;
+  hasta_ts: string | null;
+}
+
+/** Una fila de la tabla `sonidos`. */
+export interface Sonido {
+  id: string;
+  juego_id: string;
+  tipo: 'musica_fondo' | 'giro' | 'premio_chico' | 'premio_grande';
+  archivo_url: string;
+  created_at?: string;
+}
+
+/** Una fila de la tabla `efectos`. */
+export interface Efecto {
+  id: string;
+  juego_id: string;
+  nombre: string;
+  tipo: 'carcasa' | 'premio';
+  nivel_premio?: NivelPremio | null;
+  posicion?: 'linea' | 'pantalla' | null;
+  css: string;
+  pos_x?: number | null;
+  pos_y?: number | null;
+  tamano?: number | null;
+  duracion_ms?: number | null;
+  created_at?: string;
+}
+
+/** Nivel de premio que dispara un efecto o una reacción de símbolo. */
+export type NivelPremio = 'dos_iguales' | 'tres_iguales' | 'premio_mayor';
+
+/** Una fila de la tabla `clientes_conectados` (los casinos a los que se
+ * les sirve juegos — hoy Win777). */
+export interface Cliente {
+  id: string;
+  nombre: string;
+  panel_url: string;
+  secreto: string;
+  activo: boolean;
+  created_at?: string;
+}
+
+/** Versión reducida que devuelve `listarClientesActivos()`. */
+export type ClienteActivo = Pick<Cliente, 'id' | 'nombre'>;
+
+/** Salida del analizador de RTP (`src/motor.ts` → `analizar()`). Es un
+ * cálculo exacto, no una simulación: recorre todas las combinaciones
+ * posibles pesadas por su probabilidad. */
+export interface ResultadoAnalisis {
+  /** RTP en porcentaje (ev * 100). */
+  rtp: number;
+  /** Desvío estándar del pago por giro. */
+  volatilidad: number;
+  /** 1 / (probabilidad de premio). null si nunca paga. */
+  frecuencia: number | null;
+  /** Pago más alto configurado para la cantidad de rodillos del motor. */
+  premioMayor: number;
+}
+
+/** Punto en la pantalla del juego, en píxeles de la escala fija 420×860. */
+export interface Punto {
+  x: number;
+  y: number;
+}
+
+/** Rectángulo en píxeles de la escala fija (para la geometría de luces). */
+export interface Rect {
+  left: number;
+  top: number;
+  w: number;
+  h: number;
+}
+
+/** Una fila de la tabla `cadenas_luces`. Los campos de forma/figura/foco
+ * pueden no existir todavía si no se corrió el SQL correspondiente — por
+ * eso casi todos son opcionales y el código pone defaults en memoria. */
+export interface CadenaLuz {
+  id: string;
+  juego_id: string;
+  orden: number;
+  modo: 'marco' | 'figura' | 'libre';
+  cantidad: number;
+  animacion: 'secuencial' | 'sincronizado' | 'ola' | 'alternado' | 'aleatorio' | 'vaiven';
+  velocidad: number;
+  colores: string[];
+  puntos: Punto[];
+
+  tamano?: number;
+  forma?: 'circulo' | 'cuadrado' | 'rombo' | 'barra';
+  ancho?: number;
+  alto?: number;
+
+  figura?: 'rectangulo' | 'circulo' | 'linea';
+  figura_x?: number;
+  figura_y?: number;
+  figura_ancho?: number;
+  figura_alto?: number;
+  figura_rotacion?: number;
+
+  glow?: number;
+  nucleo?: number;
+  apagado?: number;
+  vidrio?: boolean;
+
+  /** Focos ya montados en el DOM — se llena en `construirCadena`. */
+  _dots?: Foco[];
+  created_at?: string;
+  [columna: string]: unknown;
+}
+
+/** Un foco de una cadena de luces: un div con memoria de su último
+ * color/opacidad para no repintar de gusto en cada frame. */
+export interface Foco extends HTMLDivElement {
+  _color?: string;
+  _op?: number;
+}
+
+/** Una fila de la tabla `capas_libres` (imágenes sueltas posicionables). */
+export interface CapaLibre {
+  id: string;
+  juego_id: string;
+  orden: number;
+  imagen_url?: string | null;
+  x: number;
+  y: number;
+  tamano: number;
+  angulo: number;
+  blur: number;
+  oscurecer: number;
+  created_at?: string;
+}
+
+/** Una fila de la tabla `animaciones_lottie` (intro y complementos de premio). */
+export interface AnimacionLottie {
+  id: string;
+  juego_id: string;
+  orden: number;
+  evento: 'intro' | 'girar' | 'premio_chico' | 'premio_mayor';
+  lottie_url?: string | null;
+  x: number;
+  y: number;
+  tamano: number;
+  created_at?: string;
+}
+
+/** Una fila de la tabla `premios_visuales` (cuadro de premio por nivel). */
+export interface PremioVisual {
+  id?: string | null;
+  juego_id: string;
+  nivel_premio: NivelPremio;
+  imagen_url?: string | null;
+  x: number;
+  y: number;
+  ancho: number;
+  alto: number;
+  blur: number;
+  oscurecer: number;
+  imagen_x: number;
+  imagen_y: number;
+  imagen_tamano: number;
+  monto_x: number;
+  monto_y: number;
+  monto_alto: number;
+  monto_espaciado: number;
+}
+
+/** Una fila de la tabla `botones` (los botones chicos: −, +, x1, x2, x3). */
+export interface Boton {
+  id?: string | null;
+  juego_id: string;
+  clave: 'menos' | 'mas' | 'x1' | 'x2' | 'x3';
+  imagen_url?: string | null;
+  tamano: number;
+  imagen_tamano: number;
+  sin_fondo: boolean;
+}
+
+/** Una fila de la tabla `digitos` (íconos por carácter del monto ganado). */
+export interface Digito {
+  id?: string;
+  juego_id: string;
+  caracter: string;
+  imagen_url?: string | null;
+}
+
+/** Resultado de un giro: lo devuelve `girar()` de cada motor y también,
+ * con la misma forma, el endpoint `/api/jugar-girar`. */
+export interface ResultadoGiro {
+  grilla: Simbolo[][];
+  premio: number;
+  nivel: NivelPremio | null;
+  filaPago: number;
+  simbolosGanadores: number[];
+  /** Solo en la respuesta del servidor (no en el motor local). */
+  saldo?: number;
+}
+
+/** Una tajada de la rueda de multiplicadores, ya lista para dibujar. */
+export interface RuletaSlot {
+  et: string;
+  mult: number;
+  color: string | null;
+  img?: string | null;
+}
+
+/** Respuesta de `/api/jugar-girar` cuando el motor es `ruleta`. La
+ * `grilla` no es una matriz de símbolos sino el estado de la rueda. */
+export interface ResultadoRuleta {
+  grilla: { tipo: 'ruleta'; slots: RuletaSlot[]; ganadora: number };
+  premio: number;
+  nivel: NivelPremio | null;
+  saldo: number;
+  repetido?: boolean;
+}
+
+// ---------------- Ruleta de botones ----------------
+
+/** Un multiplicador fijo (un botón) de la ruleta de botones. */
+export interface NumeroRuleta {
+  mult: number;
+  /** Tajadas iguales que ocupa en la rueda. */
+  cant: number;
+  color: string;
+  et: string;
+  /** Imagen del multiplicador (botón + tajada). Opcional. */
+  img?: string | null;
+}
+export interface SorpresaPoolItem { mult: number; peso: number; }
+export interface SorpresaCfg {
+  /** Fracción de jugadas en las que aparece (0–1). */
+  frecuencia: number;
+  pool: SorpresaPoolItem[];
+  /** Tope de premio por jugada. 0 = sin tope. */
+  tope: number;
+}
+/** Un punto posicionable de la mesa de la ruleta de botones (% de la
+ *  pantalla 420×860, anclado al centro del elemento). */
+export interface PuntoRuleta { x: number; y: number; }
+
+/** Posición y tamaño de los controles visibles de la ruleta de botones. */
+export interface PosControlesRuleta {
+  sorpresa: PuntoRuleta;
+  resultado: PuntoRuleta;
+  fichas: PuntoRuleta;
+  /** La grilla de botones: posición + ancho en % de la pantalla. */
+  botones: { x: number; y: number; ancho: number };
+  saldo: PuntoRuleta;
+  apostado: PuntoRuleta;
+  /** El botón Girar: posición, tamaño en px e imagen opcional. */
+  girar: { x: number; y: number; ancho: number; alto: number; imagen_url?: string | null };
+}
+
+export interface RuletaBotonesCfg {
+  numeros: NumeroRuleta[];
+  fichas: number[];
+  sorpresa: SorpresaCfg;
+  /** Id del tema visual (ver `src/juego/ruleta-temas.ts`). */
+  tema: string;
+  /** Grosor (px) del borde de color de cada botón. 0 = sin borde. */
+  bordeGrosor: number;
+  /** Imagen de fondo compartida por los 9 botones. `null` = sin fondo. */
+  botonFondo: string | null;
+  /** Posición/tamaño de los controles. Lo que falte cae en el default. */
+  controles: Partial<PosControlesRuleta>;
+}
+
+/** Estado resuelto de un giro de la ruleta de botones. */
+export interface ResueltoBotones {
+  slots: RuletaSlot[];
+  ganadora: number;
+  ganadorIdx: number;
+  sorpresa: { num: number; mult: number } | null;
+  conSorpresa: boolean;
+  /** Plata ganada (ya calculada). */
+  premio: number;
+}
+
+/** Respuesta de `POST /api/ruleta-botones-girar`. */
+export interface ResultadoRuletaBotones {
+  resultado: ResueltoBotones;
+  premio: number;
+  saldo: number;
+  repetido?: boolean;
+}
+
+// ---------------- Crash ----------------
+
+/** Un punto posicionable de la mesa del Crash (% de la pantalla). */
+export interface PuntoCrash { x: number; y: number; }
+
+/** Posición y tamaño de los controles visibles del Crash. */
+export interface PosControlesCrash {
+  multiplicador: PuntoCrash;
+  historial: PuntoCrash;
+  saldo: PuntoCrash;
+  auto: PuntoCrash;
+  apuesta: PuntoCrash;
+  boton: { x: number; y: number; ancho: number; alto: number; imagen_url?: string | null };
+}
+
+export interface CrashCfg {
+  /** 0.5–0.999. Única perilla de retorno; 1-rtp = prob. de reventón instantáneo. */
+  rtp: number;
+  /** Qué tan rápido sube el multiplicador (×2 a los ~5s con 1.0). */
+  velocidad: number;
+  /** Multiplicador máximo; llegar ahí termina la ronda. */
+  tope: number;
+  auto: { permitir: boolean; valorDefecto: number; min: number; max: number };
+  /** curva | cohete | numero | medidor | odometro */
+  formato: string;
+  /** Id del tema visual (ver `src/juego/crash-temas.ts`). */
+  tema: string;
+  objeto: {
+    /** Qué se muestra: 'auto' = lottie → imagen → emoji. */
+    tipo: 'auto' | 'lottie' | 'imagen' | 'emoji';
+    lottie_url: string | null;
+    imagen_url: string | null;
+    emojiFallback: string;
+    tam: number;
+    estela: boolean;
+    /** Rota para seguir la curva / la subida. */
+    seguir: boolean;
+    /** Orientación natural del arte. */
+    apunta: 'arriba' | 'derecha';
+    /** Ajuste fino de rotación, en grados. */
+    giro: number;
+  };
+  curva: { color: string; grosor: number; relleno: boolean; glow: boolean; cuadricula: boolean };
+  numero: { fuente: string; color: string | null; tam: number; efecto: string };
+  fondoUrl: string | null;
+  historial: { mostrar: boolean; cantidad: number };
+  controles: Partial<PosControlesCrash>;
+}
+
+export type FaseCrash = 'inactiva' | 'en_curso' | 'retirada' | 'reventada';
+
+/** Estado visible de una ronda de Crash, común a preview y pantalla real. */
+export interface EstadoCrash {
+  fase: FaseCrash;
+  apuesta: number;
+  saldo: number;
+  /** El multiplicador que se muestra ahora. */
+  multiplicador: number;
+  roundId: string | null;
+  /** ms epoch del arranque, en el reloj del servidor (+ offset local). */
+  inicioTs: number | null;
+  /** Dónde reventó (se conoce recién al terminar la ronda). */
+  reventadoEn: number | null;
+  ganancia: number | null;
+  autoActivo: boolean;
+  autoObjetivo: number;
+  cargando: boolean;
+  error: string | null;
+  /** Últimos reventones, más nuevo primero. */
+  historial: number[];
+}
+
+/** Respuesta de `POST /api/crash` con `accion: 'iniciar'`. */
+export interface RondaCrash {
+  roundId: string;
+  /** ms epoch del servidor al responder (para calcular el offset de reloj). */
+  servidorTs: number;
+  /** ms epoch del arranque de la ronda (reloj del servidor). */
+  inicioTs: number;
+  saldo: number;
+  yaExistia?: boolean;
+}
+
+/** Respuesta de `POST /api/crash` con `accion: 'retirar'` o `'cerrar'`. */
+export interface RetiroCrash {
+  multiplicador: number;
+  ganancia: number;
+  reventadoEn: number;
+  saldo: number | null;
+  repetido?: boolean;
+}
+
+// ---------------- Plinko ----------------
+
+export interface PuntoPlinko { x: number; y: number; }
+
+export interface PosControlesPlinko {
+  saldo: PuntoPlinko;
+  historial: PuntoPlinko;
+  /** Selector de filas + riesgo. */
+  opciones: PuntoPlinko;
+  apuesta: PuntoPlinko;
+  boton: { x: number; y: number; ancho: number; alto: number; imagen_url?: string | null };
+}
+
+export interface PlinkoCfg {
+  rtp: number;
+  /** Velocidad de caída (1 = normal, menos = más lento). Solo visual. */
+  velocidad: number;
+  filasPermitidas: number[];
+  filasDefecto: number;
+  riesgoPermitido: string[];
+  riesgoDefecto: string;
+  tema: string;
+  /** Proporción del tablero: alto = ancho × proporcion. */
+  tablero: { proporcion: number };
+  bola: {
+    tipo: 'auto' | 'lottie' | 'imagen' | 'emoji';
+    lottie_url: string | null;
+    imagen_url: string | null;
+    emojiFallback: string;
+    tam: number;
+  };
+  clavos: { color: string | null };
+  fondoUrl: string | null;
+  historial: { mostrar: boolean; cantidad: number };
+  controles: Partial<PosControlesPlinko>;
+}
+
+export interface EstadoPlinko {
+  saldo: number;
+  apuesta: number;
+  filas: number;
+  riesgo: string;
+  cargando: boolean;
+  error: string | null;
+  /** Últimos multiplicadores, más nuevo primero. */
+  historial: number[];
+}
+
+/** Estado resuelto de una tirada (lo decide el servidor). */
+export interface TiradaResuelta {
+  k: number;
+  path: number[];
+  mult: number;
+  filas: number;
+  riesgo: string;
+  tabla: number[];
+}
+
+/** Respuesta de `POST /api/plinko-tirar`. */
+export interface ResultadoPlinko {
+  resultado: TiradaResuelta;
+  premio: number;
+  saldo: number;
+  repetido?: boolean;
+}
+
+// ---------------- Raspadita ----------------
+
+export interface PuntoRaspa { x: number; y: number; }
+
+export interface PosControlesRaspa {
+  saldo: PuntoRaspa;
+  historial: PuntoRaspa;
+  apuesta: PuntoRaspa;
+  /** Dónde aparece el cartel de la ganancia (el contador que sube). */
+  premio: PuntoRaspa;
+  /** La tarjeta (grilla de celdas): posición + ancho en % de la pantalla. */
+  tarjeta: { x: number; y: number; ancho: number };
+  boton: { x: number; y: number; ancho: number; alto: number; imagen_url?: string | null };
+}
+
+/** Un escalón de premio de un símbolo: N iguales pagan ×m, y sale
+ * 1 de cada `cada` tarjetas. RTP del escalón = m / cada. */
+export interface EscalonRaspa {
+  c: number;
+  m: number;
+  cada: number;
+}
+
+export interface SimboloRaspa {
+  nombre: string;
+  emoji: string;
+  icono_url: string | null;
+  lottie_url: string | null;
+  /** Comodín: completa cualquier símbolo en la tarjeta ganadora, no paga solo. */
+  wild: boolean;
+  tiers: EscalonRaspa[];
+}
+
+export interface RaspaCfg {
+  /** 6 | 9 | 12. Siempre 3 columnas. */
+  celdas: number;
+  simbolos: SimboloRaspa[];
+  tema: string;
+  fondoUrl: string | null;
+  /** La capa que se raspa. */
+  cobertura: { color: string; imagen_url: string | null };
+  celda: { imagen_url: string | null };
+  /** Lottie que se reproduce sobre cada celda ganadora al revelar. */
+  animGanar_url: string | null;
+  historial: { mostrar: boolean; cantidad: number };
+  controles: Partial<PosControlesRaspa>;
+}
+
+export interface EstadoRaspa {
+  saldo: number;
+  apuesta: number;
+  cargando: boolean;
+  error: string | null;
+  /** Últimos multiplicadores, más nuevo primero. */
+  historial: number[];
+}
+
+/** Estado resuelto de una tarjeta (lo decide el servidor). */
+export interface TiradaRaspa {
+  grilla: number[];
+  ganadoras: number[];
+  mult: number;
+  simboloGanador: number | null;
+  cantidad: number;
+}
+
+/** Respuesta de `POST /api/raspadita-jugar`. */
+export interface ResultadoRaspa {
+  resultado: TiradaRaspa;
+  premio: number;
+  saldo: number;
+  repetido?: boolean;
+}
+
+// ---------------- Instantáneos (Limbo, Dice) ----------------
+
+export interface LimboCfg {
+  rtp: number;
+  /** El número nunca pasa de acá (topea el premio). */
+  tope: number;
+  objetivoDefecto: number;
+  tema: string;
+  fondoUrl: string | null;
+}
+
+export interface DiceCfg {
+  rtp: number;
+  /** Chance de ganar (%) que puede elegir el jugador. */
+  chanceMin: number;
+  chanceMax: number;
+  umbralDefecto: number;
+  direccionDefecto: 'mayor' | 'menor';
+  tema: string;
+  fondoUrl: string | null;
+}
+
+export interface KenoCfg {
+  rtp: number;
+  /** Cantidad de números del tablero (25 | 40 | 80). */
+  tablero: number;
+  /** Cuántas bolas saca la banca. */
+  bolas: number;
+  /** Tope de números que puede marcar el jugador. */
+  maxMarcar: number;
+  riesgo: 'bajo' | 'medio' | 'alto';
+  tema: string;
+  fondoUrl: string | null;
+  /** Ajustes manuales de la tabla: { [marcados]: { [aciertos]: mult } }. */
+  pagos: Record<string, Record<string, number>>;
+  /** Posición de los controles en la pantalla del juego. */
+  controles: Partial<PosControlesKeno>;
+}
+
+export type ZonaSieteUd = 'abajo' | 'siete' | 'arriba';
+
+/** La porción estética de 7 Up 7 Down que se puede reutilizar entre diseños.
+ * No contiene RTP, caras ni pagos: aplicar un preset nunca altera el juego. */
+export interface SieteUdVisualCfg {
+  tema: string;
+  /** Material del dado (marfil, oro, cromo, cristal, rubí, ónix). No toca RTP. */
+  dadoMaterial: string;
+  fondoPantallaUrl: string | null;
+  fondoUrl: string | null;
+  velo: number;
+  cartelUrl: string | null;
+  botonImg: string | null;
+  arte: {
+    pantalla: AjusteImg;
+    mesa: AjusteImg;
+    cartel: AjusteImg;
+    boton: AjusteImg;
+  };
+  controles: Partial<PosControlesSieteUd>;
+  editor: { ocultas: string[]; bloqueadas: string[]; snap: boolean };
+  estilos: {
+    zonas: { fondo: string; borde: string; texto: string; acento: string; seleccionado: string; gana: string; pierde: string; radio: number; sombra: number; escala: number };
+    boton: { fondo: string; texto: string; borde: string; bloqueado: string; radio: number; sombra: number; escala: number };
+  };
+}
+
+export interface SieteUdPreset {
+  id: string;
+  nombre: string;
+  visual: SieteUdVisualCfg;
+}
+
+export interface SieteUdCfg extends SieteUdVisualCfg {
+  rtp: number;
+  /** Caras por dado (2..12; base 6). */
+  caras: number;
+  /** Pagos fijados a mano por zona. null = exacto por RTP. */
+  pagos: { abajo: number | null; siete: number | null; arriba: number | null };
+  /** Diseños reutilizables creados por el operador. */
+  presets: SieteUdPreset[];
+}
+
+export interface AjusteImg {
+  fit: 'cover' | 'contain' | 'fill';
+  x: number;
+  y: number;
+  zoom: number;
+  blur: number;
+  osc: number;
+}
+
+export interface PuntoSieteUd { x: number; y: number; escala: number; }
+export interface AnchoSieteUd extends PuntoSieteUd { w: number; }
+export interface CajaSieteUd extends PuntoSieteUd { w: number; h: number; }
+
+export interface PosControlesSieteUd {
+  mesa: CajaSieteUd;
+  cartel: CajaSieteUd;
+  suma: PuntoSieteUd;
+  campana: AnchoSieteUd;
+  zonas: AnchoSieteUd;
+  apuesta: PuntoSieteUd;
+  boton: AnchoSieteUd;
+  saldo: PuntoSieteUd;
+  historial: PuntoSieteUd;
+}
+
+export interface PuntoKeno { x: number; y: number; }
+
+export interface PosControlesKeno {
+  saldo: PuntoKeno;
+  historial: PuntoKeno;
+  apuesta: PuntoKeno;
+  /** Botones Automático / Limpiar. */
+  acciones: PuntoKeno;
+  /** Dónde aparece el cartel de la ganancia (el contador que sube). */
+  premio: PuntoKeno;
+  /** El tablero de números: posición + ancho en % de la pantalla. */
+  tablero: { x: number; y: number; ancho: number };
+  /** El bolillero (las bolas que van saliendo): posición + ancho. */
+  bolillero: { x: number; y: number; ancho: number };
+  boton: { x: number; y: number; ancho: number; alto: number; imagen_url?: string | null };
+}
+
+/** Resultado de una jugada instantánea (lo decide el servidor). */
+export interface TiradaInstant {
+  tipo: 'limbo' | 'dice' | 'keno' | 'sieteud';
+  gano: boolean;
+  mult: number;
+  /** Limbo: el punto que salió. */
+  resultado?: number;
+  objetivo?: number;
+  /** Dice: el número 0-100. */
+  roll?: number;
+  umbral?: number;
+  direccion?: 'mayor' | 'menor';
+  prob?: number;
+  /** Keno: los números que salieron, los marcados y cuántos acertó. */
+  sorteados?: number[];
+  marcados?: number[];
+  aciertos?: number;
+  /** 7 Up 7 Down: los dos dados, la suma y las zonas. */
+  dados?: [number, number];
+  suma?: number;
+  zona?: ZonaSieteUd;
+  zonaGanadora?: ZonaSieteUd;
+}
+
+/** Respuesta de `POST /api/jugar-instant`. */
+export interface ResultadoInstant {
+  resultado: TiradaInstant;
+  premio: number;
+  saldo: number;
+  repetido?: boolean;
+}
+
+/** Estado en curso de una partida de Keno (en el navegador). */
+export interface EstadoKeno {
+  saldo: number;
+  apuesta: number;
+  /** Números que marcó el jugador. */
+  picked: number[];
+  /** Números que salieron (se van agregando en la animación). */
+  drawn: number[];
+  fase: 'idle' | 'rolling' | 'done';
+  res: { aciertos: number; mult: number; amount: number } | null;
+  cargando: boolean;
+  error: string | null;
+  /** Multiplicadores de las últimas rondas (0 = sin premio). */
+  historial: number[];
+}
+
+// ---------------- Torre ----------------
+
+export type DificultadTorre = 'facil' | 'media' | 'dificil' | 'experto' | 'maestro' | 'custom';
+
+export interface BlackjackCfg {
+  mazos: number;
+  dealerSoft17: 'plantar' | 'pedir';
+  pagoBlackjack: number;
+  permitirDoblar: boolean;
+}
+
+export interface TorreCfg {
+  rtp: number;
+  dificultad: DificultadTorre;
+  /** Solo si dificultad === 'custom'. */
+  cols: number;
+  trampas: number;
+  pisos: number;
+  tema: string;
+  fondoUrl: string | null;
+  /** Imágenes de las casillas (opcionales). */
+  casillaTapadaUrl: string | null;
+  casillaSeguraUrl: string | null;
+  casillaTrampaUrl: string | null;
+  casillaPasadaUrl: string | null;
+  fondoTorreUrl: string | null;
+  /** Animaciones Lottie (opcionales). */
+  animSubirUrl: string | null;
+  animTrampaUrl: string | null;
+  animRetiroUrl: string | null;
+  /** Ajustes manuales de la escalera: { [piso]: mult }. */
+  pagos: Record<string, number>;
+  controles: Partial<PosControlesTorre>;
+}
+
+export interface PuntoTorre { x: number; y: number; }
+
+export interface PosControlesTorre {
+  saldo: PuntoTorre;
+  historial: PuntoTorre;
+  /** El multiplicador grande. */
+  multiplicador: PuntoTorre;
+  /** Los −/+ de apuesta (o las fichas), antes de empezar. */
+  apuesta: PuntoTorre;
+  /** El cartel de la ganancia (contador que sube). */
+  premio: PuntoTorre;
+  /** La torre de casillas: posición + ancho en % de la pantalla. */
+  torre: { x: number; y: number; ancho: number };
+  boton: { x: number; y: number; ancho: number; alto: number; imagen_url?: string | null };
+}
+
+/** Estado en curso de una partida de Torre (en el navegador). */
+export interface EstadoTorre {
+  saldo: number;
+  apuesta: number;
+  /** Piso que se juega ahora (1..pisos). */
+  piso: number;
+  /** picks[i] = { piso, casilla } elegidos. */
+  picks: { piso: number; casilla: number }[];
+  /** Al perder / retirar: trampas de toda la torre. */
+  trampas: number[][] | null;
+  fase: 'idle' | 'jugando' | 'perdida' | 'retirada' | 'cargando';
+  /** Multiplicador banco (lo que cobrás si retirás ahora). */
+  mult: number;
+  res: { mult: number; amount: number; top: boolean } | null;
+  error: string | null;
+  /** Multiplicadores de las últimas rondas (0 = perdió). */
+  historial: number[];
+}
+
+/** Respuesta de `POST /api/torre` (accion: 'iniciar'). */
+export interface RondaTorre {
+  roundId: string;
+  piso: number;
+  pisos: number;
+  cols: number;
+  trampas: number;
+  multiplicador: number;
+  escalera: number[];
+  picks: { piso: number; casilla: number }[];
+  estado: 'en_curso' | 'retirada' | 'perdida';
+  saldo?: number;
+  yaExistia: boolean;
+}
+
+/** Respuesta de `POST /api/torre` (accion: 'subir'). */
+export interface SubirTorre {
+  trampa: boolean;
+  piso: number;
+  casilla: number;
+  estado: 'en_curso' | 'retirada' | 'perdida';
+  multiplicador?: number;
+  top?: boolean;
+  ganancia?: number;
+  saldo?: number | null;
+  trampasReveladas?: number[][];
+}
+
+/** Respuesta de `POST /api/torre` (accion: 'retirar'). */
+export interface RetirarTorre {
+  ganancia: number;
+  multiplicador: number;
+  saldo: number | null;
+  trampasReveladas?: number[][];
+  repetido?: boolean;
+}
+
+// ---------------- Fichas de apuesta rápida (compartidas) ----------------
+
+export interface Ficha {
+  valor: number;
+  imagen_url: string | null;
+  /** Posición en % de la pantalla del juego. */
+  x: number;
+  y: number;
+  /** Diámetro del botón en px. */
+  tam: number;
+  /** Tamaño de la imagen dentro del botón, en % (30–100). */
+  imgTam: number;
+}
+
+export interface FichasCfg {
+  fichas: Ficha[];
+  /** Con fichas cargadas: oculta el recuadro "Apuesta: 5000". */
+  sinCaja?: boolean;
+  /** 'fila' (por defecto): todas las fichas visibles a la vez.
+   * 'abanico': se ve solo la ficha activa; al tocarla se abren las demás
+   * alrededor y se repliegan solas al elegir una (ahorra espacio). */
+  modo?: 'fila' | 'abanico' | 'columna';
+  /** Radio del abanico, % del automático (50–220). 100 = el de siempre. */
+  abanicoApertura?: number;
+  /** Arco del abanico en grados (70–180). 136 = el de siempre, hacia arriba. */
+  abanicoArco?: number;
+  /** Orden en el arco del slot 3×3/5×3. Sin valor, ese slot usa 'valor'. */
+  abanicoOrden?: 'lista' | 'valor' | 'valor-inv';
+  /** De qué lado empiezan a salir. Sin valor, ese slot usa 'centro'. */
+  abanicoSale?: 'izquierda' | 'centro' | 'derecha';
+}
+
+/** Todo lo que arma un juego, tal como lo devuelve `/api/jugar-datos`
+ * y como lo junta la vista previa desde consultas sueltas. */
+export interface DatosJuego {
+  juego: Juego;
+  simbolos: Simbolo[];
+  sonidos: Sonido[];
+  efectos: Efecto[];
+  premios: PremioVisual[];
+  digitos: Digito[];
+  capasLibres: CapaLibre[];
+  botones: Boton[];
+  cadenasLuces: CadenaLuz[];
+  animaciones: AnimacionLottie[];
+}
+
+/** Lo que expone cada archivo de motor cargado por `cargarMotor()`. */
+export interface MotorModulo {
+  COLUMNAS: number;
+  FILAS: number;
+  FILA_PAGO: number;
+  elegirSimbolo(simbolos: Simbolo[], total: number): Simbolo;
+  girar(simbolos: Simbolo[]): ResultadoGiro;
+}
